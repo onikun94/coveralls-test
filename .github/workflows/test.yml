@@ -1,0 +1,56 @@
+name: CI
+on: [push, pull_request]
+  ##on: 
+  ##  push:
+  ##    branches:
+  ##      - main
+  ##  pull_request:
+
+permissions: write-all
+
+jobs:
+  test:
+    permissions:
+      checks: write  # for coverallsapp/github-action to create new checks
+      contents: read  # for actions/checkout to fetch code
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [14.x, 16.x, 17.x]
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: |
+        npm config set package-lock false
+        npm install --save --legacy-peer-deps
+
+    - name: Run Test
+      run: npm run coverage
+
+    - name: Coveralls Parallel
+      uses: coverallsapp/github-action@master
+      with:
+        github-token: ${{ secrets.github_token }}
+        flag-name: run-${{ matrix.node-version }}
+        path-to-lcov: ./coverage/lcov.info
+        parallel: true
+        
+  send_coverage:
+    permissions:
+      checks: write  # for coverallsapp/github-action to create new checks
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+    - name: Coveralls
+      # https://github.com/marketplace/actions/coveralls-github-action
+      uses: coverallsapp/github-action@master
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        parallel-finished: true
